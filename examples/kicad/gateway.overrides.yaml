@@ -1,0 +1,8 @@
+# Additions to gateway.kicad_pcb.
+title: "Gateway (from KiCad)"
+button: cap
+wall_mount: [-28, 28]
+add:
+  - {type: vent, side: right, pos: 40, n: 6, w: 1.6, h: 8.0, pitch: 3.4}
+board:
+  standoff: 6.0   # room for the keyhole pads under the board

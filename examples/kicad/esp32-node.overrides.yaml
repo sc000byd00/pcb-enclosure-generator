@@ -1,0 +1,4 @@
+# Additions to esp32-node.kicad_pcb that the board file doesn't contain.
+title: "ESP32 sensor node (from KiCad)"
+add:
+  - {type: vent, side: right, pos: 25, n: 5, w: 1.6, h: 7.0, pitch: 3.4}
