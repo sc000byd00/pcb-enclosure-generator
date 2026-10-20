@@ -132,10 +132,12 @@ def _component(raw, i):
     if t not in COMPONENTS:
         raise ConfigError(f"{where}: unknown type {t!r} (known: {', '.join(COMPONENTS)})")
     required, optional = COMPONENTS[t]
-    unknown = set(raw) - {"type", *required, *optional}
+    unknown = set(raw) - {"type", "ref", *required, *optional}
     if unknown:
         raise ConfigError(f"{where} ({t}): unknown key(s) {', '.join(sorted(unknown))}")
     c = {"type": t}
+    if "ref" in raw:  # reference designator, e.g. from KiCad; kept for messages
+        c["ref"] = str(raw["ref"])
     for k in required:
         if k not in raw:
             raise ConfigError(f"{where} ({t}): missing {k!r}")
