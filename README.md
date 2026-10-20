@@ -4,7 +4,7 @@
 
 ![Assembled enclosure, variant M](docs/images/assembled.png)
 
-Describe a circuit board in a short YAML file and get a 3D-printable enclosure: base with bosses for heat-set inserts, a lid with snap hooks, light pipes for the LEDs, a button that works through the lid, and cutouts that line up with the connectors. Every enclosure is checked before it is written: wall thickness, clearances, collisions with the board and its components, snap-hook strain, overhangs. Change the board and run it again; the whole enclosure follows.
+Describe a circuit board in a short YAML file, or point it at a KiCad board file, and get a 3D-printable enclosure: base with bosses for heat-set inserts, a lid with snap hooks, light pipes for the LEDs, a button that works through the lid, and cutouts that line up with the connectors. Every enclosure is checked before it is written: wall thickness, clearances, collisions with the board and its components, snap-hook strain, overhangs. Change the board and run it again; the whole enclosure follows.
 
 ![Exploded view](docs/images/exploded.png)
 
@@ -16,6 +16,7 @@ Describe a circuit board in a short YAML file and get a 3D-printable enclosure: 
 - **Button** as a flexure in the lid, or as a separate cap with a guide sleeve.
 - **Vent slots**, **keyholes** for wall mounting, chamfers against elephant's foot.
 - **Printable as oriented:** round openings get a 45° teardrop roof, vent slots a pointed top, the lid and light pipes are exported upside down.
+- **KiCad input:** reads outline, mounting holes and components straight from a `.kicad_pcb` file and finds which edge each connector sticks out of.
 - **Output:** STEP, STL and 3MF per part in print orientation, a check report (Markdown and JSON), and an optional dimensioned drawing.
 
 ![Variants S, M and L from the same code](docs/images/variants.png)
@@ -74,6 +75,46 @@ All have defaults; override only what you need.
 
 Unknown keys, components outside the board and similar mistakes are reported with the key that caused them.
 
+## From KiCad
+
+```bash
+enclosure from-kicad examples/kicad/esp32-node.kicad_pcb -o out --drawing
+```
+
+![KiCad board as read, and the generated enclosure](docs/images/from-kicad.png)
+
+The board file gives the outline (rectangle, square or rounded corners), the thickness, the mounting holes (drill 2.7 → M2.5, 3.2 → M3) and the components on the top side. Footprints are recognised by name:
+
+| Footprint name | Becomes |
+| --- | --- |
+| `USB_C_Receptacle*`, `BarrelJack*`, `TerminalBlock*` | edge connector: side, position and overhang from its outline |
+| `LED_0603`, `LED_0805`, ... | LED with a light pipe |
+| `SW_PUSH_6mm*`, `SW_Push_1P1T_NO_6x6*` | button (flexure or cap) |
+| `ESP32-*`, `RF_Module*`, ... | module, size from F.Fab |
+| `PinHeader_*`, `PinSocket_*` | header (8.5 mm, or 2.5 mm horizontal) |
+| `CP_Elec_6.3x7.7`, ... | capacitor, diameter and height from the name |
+| 0402 to 1206 passives | ignored |
+| anything else | part with its F.Fab size and 2 mm height, with a warning |
+
+Snap hooks are placed on the front and back edges, clear of the connector openings, and the design height follows the tallest part. The result goes to `out/<name>/board.yaml` together with the enclosure, so it can be reviewed.
+
+What the board file doesn't contain goes into an overrides file next to it, `<board>.overrides.yaml` (or `--overrides`):
+
+```yaml
+title: "Gateway (from KiCad)"
+button: cap                  # any top-level key of a board file
+wall_mount: [-28, 28]
+ignore: [J5]                 # leave parts out
+parts:
+  U3: {h: 4.2}               # correct a height, a type, an edge position
+add:                         # things that are not footprints
+  - {type: vent, side: right, pos: 40, n: 6, w: 1.6, h: 8.0, pitch: 3.4}
+board:
+  standoff: 6.0
+```
+
+The two example boards in `examples/kicad/` are written by `make_boards.py` with footprints named and shaped like the KiCad library ones.
+
 ## How the snap hooks are sized
 
 A hook is a cantilever of thickness t that bends by y while the barb slides past the wall. The strain at the root is
@@ -115,7 +156,7 @@ INFO  assembly 4 x 5.3 = 21 N, removal 4 x 9.3 = 37 N (E 2000 MPa, mu 0.3)
 PASS  button flexure: L 9.0, t 1.2, travel 0.55 mm -> strain 1.22 %, press force 6.8 N
 ```
 
-The tests (`pytest`) build the three examples, compare their outside dimensions, check that every exported STL is watertight, and feed in deliberately bad designs (thin wall, short hooks, a connector in a boss, a component that is too tall) to make sure the right check fails.
+The tests (`pytest`) read the KiCad examples and rotated or unusual footprints, build the three examples, compare their outside dimensions, check that every exported STL is watertight, and feed in deliberately bad designs (thin wall, short hooks, a connector in a boss, a component that is too tall) to make sure the right check fails.
 
 ## Drawing
 
@@ -133,6 +174,7 @@ The tests (`pytest`) build the three examples, compare their outside dimensions,
 ## Limits
 
 - Rectangular boards with rounded corners. Components are boxes or cylinders for the collision checks.
+- KiCad: top-side components only; footprints whose courtyard or F.Fab outline doesn't match the real part (some connectors) need a correction in the overrides file.
 - Connector, switch and insert sizes are typical values (`enclosure/specs.py`). Check the datasheets of your parts and measure the board before printing.
 - Material values for PETG are assumptions, not measurements. The images are renderings.
 
