@@ -4,6 +4,8 @@
 
 ![Assembled enclosure, variant M](docs/images/assembled.png)
 
+**Try it in the browser:** [enclosure configurator](https://sc000byd00.github.io/enclosure-configurator/) (form or KiCad upload, 3D preview, download; source: [enclosure-configurator](https://github.com/sc000byd00/enclosure-configurator)).
+
 Describe a circuit board in a short YAML file, or point it at a KiCad board file, and get a 3D-printable enclosure: base with bosses for heat-set inserts, a lid with snap hooks, light pipes for the LEDs, a button that works through the lid, and cutouts that line up with the connectors. Every enclosure is checked before it is written: wall thickness, clearances, collisions with the board and its components, snap-hook strain, overhangs. Change the board and run it again; the whole enclosure follows.
 
 ![Exploded view](docs/images/exploded.png)
