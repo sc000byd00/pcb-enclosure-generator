@@ -1,0 +1,30 @@
+# Gateway: DC jack and screw terminal at the back, USB-C left, two LEDs, button cap,
+# keyholes for wall mounting.
+name: l
+title: "L: gateway 100 x 70, DC jack, terminal"
+
+board:
+  size: [100, 70]
+  corner_radius: 2.0
+  holes: [[5, 5], [95, 5], [5, 65], [95, 65]]
+  screw: M3
+  standoff: 6.0
+  component_height: 14.0
+
+components:
+  - {type: barrel, side: back, pos: 14}
+  - {type: terminal, side: back, pos: 32, overhang: 0.3}
+  - {type: usb-c, side: left, pos: 40, overhang: 0.6}
+  - {type: module, x: 52, y: 20, w: 25.5, d: 18, h: 3.1}
+  - {type: cap, x: 30, y: 24, dia: 8, h: 11.5}
+  - {type: sensor, x: 96, y: 40, w: 2.5, d: 2.5, h: 0.9}
+  - {type: vent, side: right, pos: 40, z: 1.5, n: 6, w: 1.6, h: 8.0, pitch: 3.4}
+  - {type: led, x: 88, y: 58}
+  - {type: led, x: 88, y: 50}
+  - {type: button, x: 88, y: 30}
+
+button: cap
+snap_hooks:
+  front: [20, 50, 80]
+  back: [55, 80]
+wall_mount: [-28, 28]

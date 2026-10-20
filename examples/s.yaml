@@ -1,0 +1,20 @@
+# Small sensor tag: ESP32-C3 module, USB-C on the left, status LED and a button.
+name: s
+title: "S: ESP32-C3 sensor tag 50 x 30"
+
+board:
+  size: [50, 30]
+  corner_radius: 1.0
+  holes: [[3, 3], [47, 3], [3, 27], [47, 27]]
+  standoff: 4.0
+  component_height: 6.0
+
+components:
+  - {type: usb-c, side: left, pos: 15, overhang: 0.6}
+  - {type: module, x: 16, y: 8, w: 16.6, d: 13.2, h: 2.4}
+  - {type: led, x: 40, y: 8}
+  - {type: button, x: 40, y: 20, dir: "-x"}
+
+snap_hooks:
+  front: [25]
+  back: [25]

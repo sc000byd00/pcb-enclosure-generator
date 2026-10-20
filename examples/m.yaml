@@ -1,0 +1,23 @@
+# Sensor node: ESP32 module, electrolytic cap, pin header, vent slots for the sensor.
+name: m
+title: "M: ESP32 sensor node 70 x 50"
+
+board:
+  size: [70, 50]
+  holes: [[8, 4], [62, 4], [8, 46], [62, 46]]
+  screw: M2.5
+  component_height: 12.0
+
+components:
+  - {type: usb-c, side: left, pos: 25, overhang: 0.6}
+  - {type: module, x: 36, y: 16, w: 25.5, d: 18, h: 3.1}
+  - {type: cap, x: 20, y: 14, dia: 6.3, h: 7.7}
+  - {type: header, x: 36, y: 42, w: 20.3, d: 2.5, h: 8.5}
+  - {type: sensor, x: 66, y: 23.5, w: 2.5, d: 2.5, h: 0.9}
+  - {type: vent, side: right, pos: 25, z: 1.5, n: 5, w: 1.6, h: 7.0, pitch: 3.4}
+  - {type: led, x: 14, y: 38}
+  - {type: button, x: 26, y: 38, dir: "+x"}
+
+snap_hooks:
+  front: [8, 62]
+  back: [8, 62]
