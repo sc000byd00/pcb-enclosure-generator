@@ -109,6 +109,7 @@ class Enclosure:
         # board -> assembly; board centred unless a keep-out widens one side
         self.ox, self.oy = -self.in_x / 2 + self.gap["left"], -self.in_y / 2 + self.gap["front"]
         self.flex_L = self.flex_y = self.flex_sw = None
+        self.flex_outlines = []  # outer edge of each flexure slot (face at the lid), for the web check
         self.cap_z = None
         self.keyhole_pad_top = None
 
@@ -427,7 +428,9 @@ class Enclosure:
         tongue = Pos(cx, cpos.Y) * SlotOverall(Lf + wf / 2, wf)
         tongue = tongue - Pos(root_x + sgn * wf / 2, cpos.Y) * Rectangle(wf, wf + 4)
         tongue_f = tongue.faces()[0]
-        ring = offset(tongue_f, s) - tongue_f
+        outline = offset(tongue_f, s)
+        self.flex_outlines.append(outline)
+        ring = outline - tongue_f
         ring = ring - Pos(root_x + sgn * (wf / 2 + s), cpos.Y) * Rectangle(wf + 2 * s, wf + 6)
         lid -= extrude(Pos(0, 0, H - 0.5) * ring, p.lid_t + 1)
         # thinned from inside; hinge 1 mm past the root

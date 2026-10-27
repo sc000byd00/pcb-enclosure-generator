@@ -90,3 +90,12 @@ def test_kicad_names_for_switch_and_m2():
     assert kicad._classify("SW_Push_1P1T_XKB_TS-1187A") == "button"
     assert next(s for limit, s in kicad.SCREWS if 2.2 <= limit) == "M2"
     assert next(s for limit, s in kicad.SCREWS if 2.7 <= limit) == "M2.5"
+
+
+def test_two_flexures_too_close_fail_the_web_check(example_data):
+    d = example_data("m")
+    btn = next(c for c in d["components"] if c["type"] == "button")  # (26, 38), root towards +x
+    d["components"].append({"type": "button", "x": btn["x"] - 10, "y": btn["y"], "dir": "-x"})
+    _, _, _, checks = built(d)
+    assert "webs" in failures(checks)
+    assert "between flexures" in checks["webs"].message

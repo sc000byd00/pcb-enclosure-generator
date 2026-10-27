@@ -167,6 +167,11 @@ def run(enc, parts, pcb, bodies, env, overhang=True):
             if "recess" in o1[1] or "recess" in o2[1]:
                 continue
             webs.append((o2[2] - o1[3], f"{side} {o1[1]} to {o2[1]}"))
+    # lid: web between neighbouring flexure slots
+    outl = enc.flex_outlines
+    for i in range(len(outl)):
+        for j in range(i + 1, len(outl)):
+            webs.append((outl[i].distance_to(outl[j]), f"lid between flexures {i + 1} and {j + 1}"))
     if webs:
         wmin = min(webs)
         check("webs", wmin[0] >= p.min_web - 1e-6,
