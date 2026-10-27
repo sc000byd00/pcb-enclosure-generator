@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from .specs import CONNECTORS, INSERTS, SIDE_NAMES
+from .specs import CONNECTORS, INSERTS, SIDE_NAMES, SWITCHES
 
 
 class ConfigError(ValueError):
@@ -104,11 +104,16 @@ COMPONENTS = {
     **{t: (("side", "pos"), {"overhang": 0.0, "z": 0.0}) for t in CONNECTORS},
     "vent": (("side", "pos", "n", "w", "h", "pitch"), {"z": 1.5}),
     "led": (("x", "y"), {}),
-    "button": (("x", "y"), {"dir": None}),
+    "button": (("x", "y"), {"dir": None, "switch": "6x6"}),
     "module": (("x", "y", "w", "d", "h"), {}),
     "header": (("x", "y", "w", "d", "h"), {}),
     "sensor": (("x", "y", "w", "d", "h"), {}),
     "cap": (("x", "y", "dia", "h"), {}),
+    # space that stays free of enclosure parts over the full cavity height (e.g. an antenna);
+    # may reach past the board edge, the cavity grows on that side
+    "keepout": (("x", "y", "w", "d"), {}),
+    # support post from the floor to the underside of the board, where there is no hole
+    "post": (("x", "y"), {"dia": 4.0}),
 }
 
 
@@ -149,6 +154,9 @@ def _component(raw, i):
         elif k == "dir":
             if v is not None and v not in ("+x", "-x"):
                 raise ConfigError(f"{where}: dir must be '+x' or '-x'")
+        elif k == "switch":
+            if v not in SWITCHES:
+                raise ConfigError(f"{where}: switch must be one of {', '.join(SWITCHES)}")
         elif k == "n":
             if not isinstance(v, int) or v < 1:
                 raise ConfigError(f"{where}: n must be a positive integer")
@@ -228,7 +236,12 @@ def _validate(p):
     for i, c in enumerate(p.parts):
         if "side" in c and not 0 <= c["pos"] <= length[c["side"]]:
             raise ConfigError(f"components[{i}]: pos {c['pos']:g} is outside the {c['side']} edge")
-        if "x" in c and not (0 <= c["x"] <= px and 0 <= c["y"] <= py):
+        if c["type"] == "keepout":
+            if c["w"] <= 0 or c["d"] <= 0:
+                raise ConfigError(f"components[{i}]: keepout w and d must be positive")
+            if c["x"] > px or c["y"] > py or c["x"] + c["w"] < 0 or c["y"] + c["d"] < 0:
+                raise ConfigError(f"components[{i}]: keepout does not touch the board")
+        elif "x" in c and not (0 <= c["x"] <= px and 0 <= c["y"] <= py):
             raise ConfigError(f"components[{i}]: ({c['x']:g}, {c['y']:g}) is outside the board")
     buttons = [c for c in p.parts if c["type"] == "button"]
     if p.button == "flex":

@@ -17,6 +17,8 @@ Describe a circuit board in a short YAML file, or point it at a KiCad board file
 - **Light pipes** for each LED, with a sleeve in the lid against stray light.
 - **Button** as a flexure in the lid, or as a separate cap with a guide sleeve.
 - **Vent slots**, **keyholes** for wall mounting, chamfers against elephant's foot.
+- **Keep-out zones** (e.g. a module antenna past the board edge): the cavity grows on that side only, and a check makes sure no enclosure part enters the zone.
+- **Support posts** where the board has no mounting hole.
 - **Printable as oriented:** round openings get a 45° teardrop roof, vent slots a pointed top, the lid and light pipes are exported upside down.
 - **KiCad input:** reads outline, mounting holes and components straight from a `.kicad_pcb` file and finds which edge each connector sticks out of.
 - **Output:** STEP, STL and 3MF per part in print orientation, a check report (Markdown and JSON), and an optional dimensioned drawing.
@@ -58,6 +60,16 @@ snap_hooks:
 
 Board coordinates start at the board's front left corner. Edge components (`usb-c`, `barrel`, `terminal`, `vent`) take a side and a position along that edge; everything else takes x and y. `module`, `header`, `sensor` and `cap` are there for the collision checks.
 
+More component types:
+
+```yaml
+  - {type: keepout, x: 36, y: 2, w: 21, d: 43}   # front left corner, size; may reach past the board
+  - {type: post, x: 33.8, y: 12, dia: 4}         # support under the board, no hole
+  - {type: button, x: 21.5, y: 34.8, dir: "+x", switch: ts-1187a}   # 6x6 (default) or ts-1187a
+```
+
+A keep-out is a box over the full cavity height. If it reaches past an edge, the cavity on that side grows until the lid's centring lip stays outside it; the board then sits off centre.
+
 Result in `out/m/`: `base`, `lid`, `light-pipe-1` as STEP, STL and 3MF, plus `report.md`, `checks.json` and `drawing.png`/`.pdf`. The command exits with code 1 if any check fails.
 
 ### Optional settings
@@ -66,7 +78,7 @@ All have defaults; override only what you need.
 
 | Section | Keys |
 | --- | --- |
-| `board` | `thickness` (1.6), `corner_radius` (1.5), `standoff` (5.0), `screw` (M2.5 or M3) |
+| `board` | `thickness` (1.6), `corner_radius` (1.5), `standoff` (5.0), `screw` (M2, M2.5 or M3) |
 | `shell` | `wall` (2.0), `floor` (2.0), `lid` (2.0), `corner_radius` (5.0) |
 | `clearance` | `board` (0.5), `lid_fit` (0.25), `cutout` (0.4 per side), `lid_gap` (1.5) |
 | `hook` | `thickness` (1.2), `width` (6.0), `barb` (1.0), `lead_angle` (30), `retention_angle` (45), `play` (0.1), `target_strain` (0.016) |
@@ -85,13 +97,14 @@ enclosure from-kicad examples/kicad/esp32-node.kicad_pcb -o out --drawing
 
 ![KiCad board as read, and the generated enclosure](docs/images/from-kicad.png)
 
-The board file gives the outline (rectangle, square or rounded corners), the thickness, the mounting holes (drill 2.7 → M2.5, 3.2 → M3) and the components on the top side. Footprints are recognised by name:
+The board file gives the outline (rectangle, square or rounded corners), the thickness, the mounting holes (drill 2.2 → M2, 2.7 → M2.5, 3.2 → M3) and the components on the top side. Footprints are recognised by name:
 
 | Footprint name | Becomes |
 | --- | --- |
 | `USB_C_Receptacle*`, `BarrelJack*`, `TerminalBlock*` | edge connector: side, position and overhang from its outline |
 | `LED_0603`, `LED_0805`, ... | LED with a light pipe |
 | `SW_PUSH_6mm*`, `SW_Push_1P1T_NO_6x6*` | button (flexure or cap) |
+| `SW_Push_1P1T_XKB_TS-1187A` | low-profile button, 5.1 x 5.1 x 1.5 mm |
 | `ESP32-*`, `RF_Module*`, ... | module, size from F.Fab |
 | `PinHeader_*`, `PinSocket_*` | header (8.5 mm, or 2.5 mm horizontal) |
 | `CP_Elec_6.3x7.7`, ... | capacitor, diameter and height from the name |

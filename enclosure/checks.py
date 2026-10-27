@@ -8,7 +8,7 @@ from build123d import Cylinder, Pos
 
 from . import snapfit
 from .geometry import SIDES
-from .specs import CONNECTORS, PETG, SWITCH
+from .specs import CONNECTORS, PETG
 
 
 @dataclass
@@ -62,12 +62,15 @@ def printed_upside_down(name):
 
 
 def _bosses(enc):
+    """Bosses and support posts: the board rests on them, so they are left out of the
+    board-to-wall distance."""
     p = enc.p
     s = None
-    for hx, hy in p.holes:
+    supports = [(hx, hy, enc.ins["boss"] / 2) for hx, hy in p.holes]
+    supports += [(c["x"], c["y"], c["dia"] / 2) for c in enc.parts_by("post")]
+    for hx, hy, r in supports:
         c = enc.w(hx, hy)
-        b = Pos(c.X, c.Y, p.floor + p.standoff_h / 2) * Cylinder(enc.ins["boss"] / 2 + 0.01,
-                                                                 p.standoff_h + 0.2)
+        b = Pos(c.X, c.Y, p.floor + p.standoff_h / 2) * Cylinder(r + 0.01, p.standoff_h + 0.2)
         s = b if s is None else s + b
     return s
 
@@ -103,7 +106,7 @@ def run(enc, parts, pcb, bodies, env, overhang=True):
     check("board-fit", min(gx, gy) >= p.pcb_gap,
           f"board {p.pcb[0]:g} x {p.pcb[1]:g} in cavity {enc.in_x:.1f} x {enc.in_y:.1f}, "
           f"gap {gx:.2f} / {gy:.2f} mm")
-    shell = base - _bosses(enc) if p.holes else base
+    shell = base - _bosses(enc) if p.holes or enc.parts_by("post") else base
     d = pcb.distance_to(shell)
     check("board-wall", d >= min(p.pcb_gap, 0.3) - 0.01,
           f"board to wall at least {d:.2f} mm (inner corner radius {enc.r_in:.2f})")
@@ -196,14 +199,22 @@ def run(enc, parts, pcb, bodies, env, overhang=True):
         F = snapfit.flexure_force(PETG["E"], p.flex_w, p.flex_t, enc.flex_y, enc.flex_L)
         check("flexure", e2 <= PETG["strain_allow"],
               f"button flexure: L {enc.flex_L:.1f}, t {p.flex_t:g}, travel {enc.flex_y:.2f} mm "
-              f"-> strain {e2 * 100:.2f} %, press force {F + SWITCH['force']:.1f} N "
-              f"(flexure {F:.1f} + switch {SWITCH['force']:g})")
+              f"-> strain {e2 * 100:.2f} %, press force {F + enc.flex_sw['force']:.1f} N "
+              f"(flexure {F:.1f} + switch {enc.flex_sw['force']:g})")
     if p.button == "cap" and enc.cap_z:
         _, z_fl, _ = enc.cap_z
         play = enc.H - p.sleeve_h - z_fl
-        check("button-cap", p.cap_proud > SWITCH["travel"] and play > 0.1,
-              f"button cap stands {p.cap_proud:g} mm proud, travel {SWITCH['travel']:g} mm, "
+        travel = enc.switch(enc.parts_by("button")[0])["travel"]
+        check("button-cap", p.cap_proud > travel and play > 0.1,
+              f"button cap stands {p.cap_proud:g} mm proud, travel {travel:g} mm, "
               f"flange {play:.1f} mm below the sleeve")
+    for i, c in enumerate(enc.parts_by("keepout")):
+        zone = enc.keepout_volume(c)
+        hit = [n for n, part in parts.items() if (zone & part).volume > 1e-4]
+        name = c.get("ref", f"keepout-{i + 1}")
+        check(f"keepout-{i + 1}", not hit,
+              f"{name}: {c['w']:g} x {c['d']:g} mm free of enclosure parts over the cavity height"
+              + (": hit by " + ", ".join(hit) if hit else ""))
     for i, _ in enumerate(enc.parts_by("led")):
         check(f"light-pipe-{i + 1}", 0.2 <= p.lp_gap <= 1.0,
               f"light pipe {i + 1}: tip {p.lp_gap:g} mm above the LED, fit {p.lp_fit:g} mm")

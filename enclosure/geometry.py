@@ -36,7 +36,7 @@ from build123d import (
 
 from . import snapfit
 from .config import Params
-from .specs import CONNECTORS, INSERTS, LED, SWITCH
+from .specs import CONNECTORS, INSERTS, LED, SWITCHES
 
 SIDES = {
     "left": Vector(-1, 0, 0), "right": Vector(1, 0, 0),
@@ -86,21 +86,44 @@ class Enclosure:
         gx = max(g["left"], g["right"])
         gy = max(g["front"], g["back"])
         self.gap = {"left": gx, "right": gx, "front": gy, "back": gy}
-        self.in_x = px + 2 * gx
-        self.in_y = py + 2 * gy
+        # keep-out zones reaching past the board edge widen the cavity on that side only,
+        # far enough that the lid's centring lip stays outside the zone
+        keep_clear = max(p.pcb_gap, p.fit + p.lip_w + 0.1)
+        for k in self.parts_by("keepout"):
+            need = {"left": -k["x"], "right": k["x"] + k["w"] - px,
+                    "front": -k["y"], "back": k["y"] + k["d"] - py}
+            for s, n in need.items():
+                if n > 0:
+                    self.gap[s] = max(self.gap[s], n + keep_clear)
+        if self.gap != {"left": gx, "right": gx, "front": gy, "back": gy}:
+            self.notes.append("cavity widened for keep-out zones: " + ", ".join(
+                f"{s} {self.gap[s]:.1f} mm" for s in SIDES if self.gap[s] > (gx if s in ("left", "right") else gy)))
+        self.in_x = px + self.gap["left"] + self.gap["right"]
+        self.in_y = py + self.gap["front"] + self.gap["back"]
         self.out_x = self.in_x + 2 * p.wall
         self.out_y = self.in_y + 2 * p.wall
         # inner corner radius small enough to clear the board corner (arc in arc)
         gmin = min(gx, gy)
         r_fit = (math.sqrt(2) * (gmin + p.pcb_r) - p.pcb_r - 0.3) / (math.sqrt(2) - 1)
         self.r_in = max(0.5, min(p.corner_r - p.wall, r_fit))
-        self.ox, self.oy = -px / 2, -py / 2  # board -> assembly
-        self.flex_L = self.flex_y = None
+        # board -> assembly; board centred unless a keep-out widens one side
+        self.ox, self.oy = -self.in_x / 2 + self.gap["left"], -self.in_y / 2 + self.gap["front"]
+        self.flex_L = self.flex_y = self.flex_sw = None
         self.cap_z = None
         self.keyhole_pad_top = None
 
     def parts_by(self, t):
         return [c for c in self.parts if c["type"] == t]
+
+    @staticmethod
+    def switch(c):
+        return SWITCHES[c.get("switch", "6x6")]
+
+    def keepout_volume(self, c):
+        """Keep-out zone as a box over the full cavity height (floor to lid)."""
+        q = self.w(c["x"] + c["w"] / 2, c["y"] + c["d"] / 2)
+        z0, z1 = self.p.floor + 0.01, self.H - 0.01
+        return Pos(q.X, q.Y, (z0 + z1) / 2) * Box(c["w"], c["d"], z1 - z0)
 
     # ---------- helpers ----------
     def w(self, x, y):
@@ -141,10 +164,10 @@ class Enclosure:
         p = self.p
         px, py = p.pcb
         z0 = p.floor + p.standoff_h
-        pcb = rrect(px, py, p.pcb_r, p.pcb_t, z0)
+        pcb = Pos(*self.wxy(px / 2, py / 2)) * rrect(px, py, p.pcb_r, p.pcb_t, z0)  # off centre with keep-outs
         for hx, hy in p.holes:
             c = self.w(hx, hy)
-            pcb -= cyl(c.X, c.Y, z0 - 1, 1.4 if p.screw == "M2.5" else 1.7, 5)
+            pcb -= cyl(c.X, c.Y, z0 - 1, self.ins["clear"], 5)
         bodies = {}
         zt = self.pcb_top
         for i, c in enumerate(self.parts):
@@ -174,7 +197,7 @@ class Enclosure:
                 body = Pos(*self.wxy(c["x"], c["y"]), zt + LED["h"] / 2) * Box(
                     LED["w"], LED["d"], LED["h"])
             elif t == "button":
-                s = SWITCH
+                s = self.switch(c)
                 body = Pos(*self.wxy(c["x"], c["y"]), zt + s["body_h"] / 2) * Box(
                     s["w"], s["w"], s["body_h"])
                 q = self.w(c["x"], c["y"])
@@ -276,6 +299,10 @@ class Enclosure:
             part -= loft([Pos(c.X, c.Y, top - 0.4) * Circle(self.ins["hole"] / 2),
                           Pos(c.X, c.Y, top + 0.01) * Circle(self.ins["hole"] / 2 + 0.41)])
         # keyholes: head Ø8.5, shank 4.5, for a 4 mm round head screw
+        # support posts where the board has no mounting hole
+        for c in self.parts_by("post"):
+            q = self.w(c["x"], c["y"])
+            part += cyl(q.X, q.Y, p.floor - 0.01, c["dia"] / 2, p.standoff_h + 0.01)
         for kx in p.keyholes:
             lip, pocket, roof = 1.6, 2.6, 1.2
             slot = 8.0
@@ -407,11 +434,13 @@ class Enclosure:
         pocket = Pos(cx + sgn * 0.5, cpos.Y) * Rectangle(Lf + 1.0, wf + 2 * s)
         lid -= extrude(Pos(0, 0, H - 0.01) * pocket, p.lid_t - p.flex_t + 0.01)
         # plunger down to just above the switch
-        z_bot = self.pcb_top + SWITCH["h"] + p.btn_gap
+        sw = self.switch(c)
+        z_bot = self.pcb_top + sw["h"] + p.btn_gap
         z_top = H + p.lid_t - p.flex_t + 0.01
         lid += Pos(cpos.X, cpos.Y, (z_bot + z_top) / 2) * Cylinder(2.0, z_top - z_bot)
         self.flex_L = abs(root_x + sgn * 1.0 - cpos.X)  # hinge to plunger centre
-        self.flex_y = p.btn_gap + SWITCH["travel"]
+        self.flex_y = p.btn_gap + sw["travel"]
+        self.flex_sw = sw
         return lid
 
     def light_pipes(self):
@@ -433,7 +462,7 @@ class Enclosure:
             return None
         c = self.parts_by("button")[0]
         cpos = self.w(c["x"], c["y"])
-        z_bot = self.pcb_top + SWITCH["h"]
+        z_bot = self.pcb_top + self.switch(c)["h"]
         top = self.H + p.lid_t + p.cap_proud
         fl_r, fl_h = p.cap_d / 2 + 1.8, 0.4  # flange with a 45° cone on top: prints upside down
         cone_h = fl_r - p.cap_d / 2

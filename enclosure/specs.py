@@ -30,16 +30,23 @@ CONNECTORS = {
                      overmold=None, reach=6.0),
 }
 
-# 6 x 6 tactile switch
-SWITCH = dict(w=6.0, body_h=3.5, h=5.0, plunger_d=3.5, travel=0.25, force=1.6)
+# Tactile switches: body width, body height, height to the plunger top, plunger diameter,
+# travel, actuation force (N). Typical values.
+SWITCHES = {
+    "6x6": dict(w=6.0, body_h=3.5, h=5.0, plunger_d=3.5, travel=0.25, force=1.6),
+    # XKB TS-1187A, 5.1 x 5.1 x 1.5 mm low-profile SMD switch
+    "ts-1187a": dict(w=5.1, body_h=1.0, h=1.5, plunger_d=2.0, travel=0.25, force=1.6),
+}
+SWITCH = SWITCHES["6x6"]
 
 # 0603 SMD LED
 LED = dict(w=1.6, d=0.8, h=0.6)
 
-# Heat-set inserts: hole, depth, boss diameter
+# Heat-set inserts: hole, depth, boss diameter; clear = screw clearance radius in the board
 INSERTS = {
-    "M2.5": dict(hole=3.6, depth=4.6, boss=6.2),
-    "M3": dict(hole=4.0, depth=6.2, boss=7.4),
+    "M2": dict(hole=3.2, depth=4.0, boss=5.6, clear=1.1),
+    "M2.5": dict(hole=3.6, depth=4.6, boss=6.2, clear=1.4),
+    "M3": dict(hole=4.0, depth=6.2, boss=7.4, clear=1.7),
 }
 
 # Board-side normals, pointing outwards

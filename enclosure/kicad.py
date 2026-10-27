@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 
 from .sexpr import child, children, floats, parse, value
-from .specs import CONNECTORS, SWITCH
+from .specs import CONNECTORS, SWITCHES
 
 # footprint name (without library) -> component type
 RULES = [
@@ -28,7 +28,7 @@ RULES = [
     (r"^BarrelJack", "barrel"),
     (r"^TerminalBlock", "terminal"),
     (r"^LED_(0402|0603|0805|1206)|^LED_SMD", "led"),
-    (r"^SW_PUSH_6mm|^SW_Push_1P1T_NO_6x6|^SW_SPST_TL3342", "button"),
+    (r"^SW_PUSH_6mm|^SW_Push_1P1T_NO_6x6|^SW_SPST_TL3342|^SW_Push_1P1T_XKB_TS-1187A", "button"),
     (r"^ESP32-|^ESP8266|^RF_Module|^nRF52.*Module|^RP2040.*Module", "module"),
     (r"^PinHeader_|^PinSocket_", "header"),
     (r"^CP_Elec_|^C_Elec_", "cap"),
@@ -42,11 +42,17 @@ HEIGHTS = [
     (r"^PinHeader_.*Horizontal|^PinSocket_.*Horizontal", 2.5),
     (r"^PinHeader_|^PinSocket_", 8.5),
     (r"^Bosch_LGA", 0.93),
+    (r"^ESP32-C3-WROOM-02", 3.2),
+    (r"^SOT-23", 1.45),
+    (r"^JST_SH_SM\d+B-SRSS-TB", 2.95),
+    (r"^Sensirion_DFN", 0.5),
 ]
+# switch footprints that are not the 6 x 6 type
+SWITCH_TYPES = [(r"XKB_TS-1187A", "ts-1187a")]
 DEFAULT_HEIGHT = 2.0
 
 # mounting hole drill (mm) -> screw
-SCREWS = [(2.9, "M2.5"), (3.6, "M3")]
+SCREWS = [(2.4, "M2"), (2.9, "M2.5"), (3.6, "M3")]
 
 FAB_LAYERS = ("F.Fab", "F.CrtYd")
 
@@ -239,6 +245,9 @@ def read_board(path, name=None):
             c.update(type="led", x=mx, y=my)
         elif kind == "button":
             c.update(type="button", x=mx, y=my, dir="+x" if mx < px / 2 else "-x")
+            sw = next((s for pat, s in SWITCH_TYPES if re.search(pat, short)), None)
+            if sw:
+                c["switch"] = sw
         elif kind == "cap":
             m = re.search(r"Elec_([\d.]+)x([\d.]+)", short)
             if m:
@@ -288,7 +297,9 @@ def component_height(c):
     if t in CONNECTORS:
         return CONNECTORS[t]["h"] + c.get("z", 0.0)
     if t == "button":
-        return SWITCH["h"]
+        return SWITCHES[c.get("switch", "6x6")]["h"]
+    if t in ("keepout", "post"):
+        return 0.0
     return c.get("h", 0.0)
 
 
